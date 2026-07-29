@@ -1,0 +1,206 @@
+:root {
+  --font-body: "Roboto", Arial, sans-serif;
+  --font-headline: "Poppins", Arial, sans-serif;
+
+  /* colors - from project proposal */
+  --primary-color: #4caf50;
+  --secondary-color: #ff9800;
+  --background-color: #f8f9fa;
+  --text-color: #333333;
+  --accent-color: #8bc34a;
+  --light-grey: #d0d0d0;
+
+  --font-base: 16px;
+  --small-font: 0.85em;
+  --large-font: 1.25em;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--font-base);
+  color: var(--text-color);
+  background-color: var(--background-color);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-headline);
+}
+
+a {
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+}
+
+.divider {
+  border-bottom: 2px solid var(--primary-color);
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: white;
+}
+
+.logo a {
+  font-family: var(--font-headline);
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.highlight {
+  color: var(--secondary-color);
+}
+
+nav {
+  display: flex;
+  gap: 1.5rem;
+}
+
+nav a:hover {
+  color: var(--primary-color);
+}
+
+main {
+  padding: 2rem 1rem;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+/* Search page */
+.search-section {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.search-form {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+}
+
+.search-form input {
+  padding: 0.6em 1em;
+  font-size: 1em;
+  border: 1px solid var(--light-grey);
+  border-radius: 4px;
+  width: 300px;
+  max-width: 100%;
+}
+
+.search-form button {
+  padding: 0.6em 1.5em;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1em;
+  cursor: pointer;
+}
+
+.search-form button:hover {
+  background-color: var(--accent-color);
+}
+
+.filters {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: var(--small-font);
+}
+
+.results {
+  margin-top: 2rem;
+}
+
+#results-status {
+  text-align: center;
+  color: var(--text-color);
+  padding: 1rem;
+}
+
+.recipe-list {
+  display: flex;
+  flex-flow: row wrap;
+  list-style-type: none;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.recipe-card {
+  flex: 1 1 220px;
+  max-width: 250px;
+  border: 1px solid var(--light-grey);
+  border-radius: 6px;
+  padding: 0.75rem;
+  background-color: white;
+}
+
+.recipe-card h3 {
+  font-size: 1em;
+  margin: 0.5em 0;
+}
+
+/* Meal Planner page */
+.meal-planner-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.day-column {
+  background-color: white;
+  border: 1px solid var(--light-grey);
+  border-radius: 6px;
+  padding: 0.75rem;
+  min-height: 200px;
+}
+
+.day-column h2 {
+  font-size: 1em;
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--light-grey);
+  padding-bottom: 0.5rem;
+}
+
+@media screen and (max-width: 900px) {
+  .meal-planner-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (max-width: 500px) {
+  .meal-planner-grid {
+    grid-template-columns: 1fr;
+  }
+
+  nav {
+    gap: 0.75rem;
+    font-size: var(--small-font);
+  }
+}
+
+footer {
+  text-align: center;
+  font-size: var(--small-font);
+  padding: 1.5rem;
+  color: var(--text-color);
+}

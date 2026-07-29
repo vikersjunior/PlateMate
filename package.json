@@ -1,0 +1,22 @@
+{
+  "name": "recipe-meal-planner",
+  "version": "1.0.0",
+  "description": "WDD 330 Final Project - Recipe Search & Meal Planner",
+  "main": "main.js",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build --emptyOutDir",
+    "preview": "vite preview",
+    "lint": "eslint *.js src/**/*.js",
+    "format": "prettier --ignore-path ./.gitignore --write \"./**/*.{html,json,js,ts,css}\""
+  },
+  "author": "Vikers",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^8.10.0",
+    "eslint-plugin-import": "^2.29.1",
+    "prettier": "^3.2.5",
+    "vite": "^5.4.10"
+  }
+}
