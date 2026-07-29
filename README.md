@@ -5,7 +5,7 @@ WDD 330 Final Project — a web application for searching recipes, viewing nutri
 ## APIs Used
 
 - Spoonacular API — recipe search, ingredients, instructions
-- Nutritionix API — nutritional breakdown (calories, protein, fat, carbs, etc.)
+- USDA FoodData Central API — nutritional breakdown (calories, protein, fat, carbs, etc.)
 
 ## Data Storage
 
