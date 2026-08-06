@@ -14,6 +14,7 @@ export default defineConfig({
         mealPlanner: resolve(__dirname, "src/meal-planner/index.html"),
         favorites: resolve(__dirname, "src/favorites/index.html"),
         recipeDetails: resolve(__dirname, "src/recipe-details/index.html"),
+        shopping: resolve(__dirname, "src/shopping/index.html"),
       },
     },
   },

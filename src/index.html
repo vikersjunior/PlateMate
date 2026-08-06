@@ -3,56 +3,106 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PlateMate | Search</title>
+    <title>PlateMate | Home</title>
     <link rel="stylesheet" href="/css/style.css" />
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Inter:wght@400;500;600;700&display=swap"
     />
-    <script src="./js/main.js" type="module"></script>
+    <script src="js/main.js" type="module"></script>
   </head>
 
   <body>
     <header id="main-header"></header>
 
-    <main class="divider">
-      <section class="search-section">
-        <h1>Find Your Next Recipe</h1>
+    <main class="page-container">
+      <!-- Search Hero Section -->
+      <section class="search-hero" id="search-hero">
+        <div class="hero-title-group">
+          <h1>What do you want to <br /><span class="hero-highlight">cook today?</span></h1>
+          <p class="hero-sub">Discover recipes by ingredient, diet, or cooking time</p>
+        </div>
 
-        <form id="search-form" class="search-form">
-          <input
-            type="text"
-            id="search-input"
-            name="query"
-            placeholder="Search recipes (e.g. Chicken, Pasta, Salad)"
-            required
-          />
-          <button type="submit">Search</button>
+        <form id="search-form" class="search-bar-form">
+          <div class="search-bar-pill">
+            <svg class="search-bar-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" id="search-input" placeholder="Search recipes (e.g. chicken, pasta, avocado)..." autocomplete="off" />
+            <button type="button" id="search-clear-btn" class="search-clear-btn" style="display: none;" title="Clear search">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            <button type="submit" class="search-bar-btn">Search</button>
+          </div>
         </form>
+      </section>
 
-        <div class="filters">
-          <label>
-            <input type="checkbox" name="diet" value="vegetarian" />
-            Vegetarian
-          </label>
-          <label>
-            <input type="checkbox" name="diet" value="vegan" />
-            Vegan
-          </label>
-          <label>
-            <input type="checkbox" name="diet" value="gluten free" />
-            Gluten Free
-          </label>
-          <label>
-            <input type="checkbox" name="diet" value="ketogenic" />
-            Keto
-          </label>
+      <!-- Popular Categories Section -->
+      <section class="categories-section" id="categories-section">
+        <div class="category-pills" id="category-pills">
+          <button type="button" class="category-pill" id="category-all-pill" data-category="All" style="display: none;">All</button>
+          <button type="button" class="category-pill" data-category="Healthy">🥗 Healthy</button>
+          <button type="button" class="category-pill" data-category="Pasta">🍝 Pasta</button>
+          <button type="button" class="category-pill" data-category="Chicken">🍗 Chicken</button>
+          <button type="button" class="category-pill" data-category="Breakfast">🥞 Breakfast</button>
+          <button type="button" class="category-pill" data-category="Asian">🍜 Asian</button>
+          <button type="button" class="category-pill" data-category="Dessert">🍰 Dessert</button>
         </div>
       </section>
 
-      <section class="results">
-        <p id="results-status">Search for a recipe to get started.</p>
-        <ul id="recipe-list" class="recipe-list"></ul>
+      <!-- Filter Chips (Diet / Cooking Time — Hidden on Home State) -->
+      <section class="filter-chips-section" id="filter-chips-section">
+        <div class="filter-chips" id="filter-chips">
+          <button type="button" class="filter-chip-btn" data-filter="diet" data-value="vegetarian">Vegetarian</button>
+          <button type="button" class="filter-chip-btn" data-filter="diet" data-value="vegan">Vegan</button>
+          <button type="button" class="filter-chip-btn" data-filter="diet" data-value="gluten free">Gluten-Free</button>
+          <button type="button" class="filter-chip-btn" data-filter="diet" data-value="ketogenic">Keto</button>
+          <button type="button" class="filter-chip-btn" data-filter="diet" data-value="high protein">High Protein</button>
+          <button type="button" class="filter-chip-btn" data-filter="time" data-value="15">Under 15 min</button>
+          <button type="button" class="filter-chip-btn" data-filter="time" data-value="30">Under 30 min</button>
+          <button type="button" class="filter-chip-btn" data-filter="time" data-value="60">Under 60 min</button>
+        </div>
+      </section>
+
+      <!-- Trending Section (Home State) -->
+      <section class="trending-section" id="trending-section">
+        <div class="section-header">
+          <h2 class="section-title">Trending Recipes</h2>
+          <div class="scroll-chevron-btns">
+            <button type="button" class="chevron-btn" id="scroll-left-btn" aria-label="Scroll left">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.5 16.25L6.25 10L12.5 3.75" stroke="#3E8E5A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button type="button" class="chevron-btn" id="scroll-right-btn" aria-label="Scroll right">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7.5 3.75L13.75 10L7.5 16.25" stroke="#3E8E5A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="trending-scroll-container" id="trending-list"></div>
+      </section>
+
+      <!-- Search Results Section (Search State) -->
+      <section class="results-section" id="results-section">
+        <div id="results-status" class="results-status"></div>
+        <div id="results-content"></div>
+      </section>
+
+      <!-- Start Planning Banner Card (Home State) -->
+      <section class="planner-banner-section" id="planner-banner-section">
+        <div class="planner-banner-card">
+          <div class="planner-banner-info">
+            <h2 id="planner-banner-title">Start Planning Your Week</h2>
+            <p id="planner-banner-sub">Add recipes to your weekly planner and generate a shopping list automatically</p>
+          </div>
+          <a href="/meal-planner/index.html" class="planner-banner-btn">Open Weekly Planner</a>
+        </div>
       </section>
     </main>
 
