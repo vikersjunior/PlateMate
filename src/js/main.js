@@ -419,7 +419,7 @@ filterChipBtns.forEach((chip) => {
         chip.classList.remove("active");
       } else {
         document
-          .querySelectorAll('.filter-chip-btn[data-filter="diet"]')
+          .querySelectorAll(".filter-chip-btn[data-filter=\"diet\"]")
           .forEach((c) => c.classList.remove("active"));
         activeDiet = val;
         chip.classList.add("active");
@@ -430,7 +430,7 @@ filterChipBtns.forEach((chip) => {
         chip.classList.remove("active");
       } else {
         document
-          .querySelectorAll('.filter-chip-btn[data-filter="time"]')
+          .querySelectorAll(".filter-chip-btn[data-filter=\"time\"]")
           .forEach((c) => c.classList.remove("active"));
         activeMaxTime = val;
         chip.classList.add("active");

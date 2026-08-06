@@ -19,10 +19,26 @@
       <div class="planner-header-bar">
         <div>
           <h1 class="planner-title">Weekly Planner</h1>
-          <p id="planner-subtitle" class="planner-subtitle">No meals planned yet — add some recipes!</p>
+          <p id="planner-subtitle" class="planner-subtitle">
+            No meals planned yet — add some recipes!
+          </p>
         </div>
-        <button type="button" id="shopping-list-btn" class="shopping-list-btn" style="display: none;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button
+          type="button"
+          id="shopping-list-btn"
+          class="shopping-list-btn"
+          style="display: none"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
             <line x1="3" y1="6" x2="21" y2="6" />
             <path d="M16 10a4 4 0 01-8 0" />
@@ -32,26 +48,22 @@
       </div>
 
       <!-- Empty State -->
-      <div id="planner-empty-state" class="empty-state-card" style="display: none;">
+      <div
+        id="planner-empty-state"
+        class="empty-state-card"
+        style="display: none"
+      >
         <div class="empty-state-icon">📅</div>
         <h2>Your week is wide open</h2>
         <p>Browse recipes and use "Add to Planner" to fill your week</p>
         <a href="/index.html" class="empty-state-btn">Browse Recipes</a>
       </div>
 
+      <!-- Weekly Nutrition Summary -->
+      <div id="weekly-nutrition-summary"></div>
+
       <!-- Days Grid -->
       <div class="planner-days-grid" id="meal-planner-grid"></div>
-
-      <!-- Shopping List Modal -->
-      <dialog id="shopping-modal" class="shopping-modal">
-        <div class="shopping-modal-content">
-          <div class="shopping-modal-header">
-            <h2>🛒 Weekly Shopping List</h2>
-            <button type="button" id="close-modal-btn" class="close-modal-btn">&times;</button>
-          </div>
-          <div class="shopping-modal-body" id="shopping-modal-body"></div>
-        </div>
-      </dialog>
     </main>
 
     <footer id="main-footer"></footer>

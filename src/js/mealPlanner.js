@@ -1,8 +1,23 @@
-import { getLocalStorage, setLocalStorage, loadHeaderFooter, qs, showToast } from "./utils.mjs";
+import {
+  getLocalStorage,
+  setLocalStorage,
+  loadHeaderFooter,
+  qs,
+  showToast,
+  getNutritionForIngredient,
+} from "./utils.mjs";
 
 loadHeaderFooter();
 
-const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+const DAYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
 const DAY_LABELS = {
   monday: "Monday",
   tuesday: "Tuesday",
@@ -20,10 +35,13 @@ const SLOT_ICONS = {
   dinner: "🌙",
 };
 
+const usdaKey = import.meta.env.VITE_USDA_FDC_API_KEY;
+
 const plannerGrid = qs("#meal-planner-grid");
 const emptyState = qs("#planner-empty-state");
 const subtitle = qs("#planner-subtitle");
 const shoppingListBtn = qs("#shopping-list-btn");
+const nutritionSummaryEl = qs("#weekly-nutrition-summary");
 
 function getMealPlan() {
   return getLocalStorage("so-mealplan") || {};
@@ -42,6 +60,119 @@ function countTotalMeals(mealPlan) {
     }
   });
   return count;
+}
+
+function getAllPlannedMeals(mealPlan) {
+  const meals = [];
+
+  DAYS.forEach((day) => {
+    const dayData = mealPlan[day];
+    if (!dayData) return;
+
+    if (Array.isArray(dayData)) {
+      dayData.forEach((recipe) => recipe && meals.push(recipe));
+    } else {
+      SLOTS.forEach((slot) => {
+        if (dayData[slot]) meals.push(dayData[slot]);
+      });
+    }
+  });
+
+  return meals;
+}
+
+async function calculateWeeklyNutrition() {
+  const mealPlan = getMealPlan();
+  const meals = getAllPlannedMeals(mealPlan);
+
+  if (meals.length === 0) {
+    if (nutritionSummaryEl) nutritionSummaryEl.innerHTML = "";
+    return;
+  }
+
+  if (nutritionSummaryEl) {
+    nutritionSummaryEl.innerHTML = `
+      <div class="loading-box">
+        <div class="loader"></div>
+        <p>Calculating weekly nutrition...</p>
+      </div>
+    `;
+  }
+
+  const totals = {
+    calories: 0,
+    protein: 0,
+    fat: 0,
+    carbs: 0,
+    fiber: 0,
+    sugar: 0,
+    sodium: 0,
+  };
+
+  for (const meal of meals) {
+    const ingredients = (meal.extendedIngredients || []).slice(0, 3);
+
+    for (const ing of ingredients) {
+      const nutrients = await getNutritionForIngredient(ing.name, usdaKey);
+      if (!nutrients) continue;
+
+      totals.calories += nutrients.calories || 0;
+      totals.protein += nutrients.protein || 0;
+      totals.fat += nutrients.fat || 0;
+      totals.carbs += nutrients.carbs || 0;
+      totals.fiber += nutrients.fiber || 0;
+      totals.sugar += nutrients.sugar || 0;
+      totals.sodium += nutrients.sodium || 0;
+    }
+  }
+
+  renderWeeklyNutrition(totals, meals.length);
+}
+
+function renderWeeklyNutrition(totals, mealCount) {
+  if (!nutritionSummaryEl) return;
+
+  nutritionSummaryEl.innerHTML = `
+    <div class="nutrition-summary">
+      <h2 class="nutrition-summary__title">Weekly Nutrition Summary</h2>
+      <p class="nutrition-summary__subtitle">Estimated totals across ${mealCount} planned meal${mealCount !== 1 ? "s" : ""}</p>
+
+      <div class="nutrition-summary__grid">
+        <div class="nutrition-tile nutrition-tile--highlight">
+          <div class="nutrition-tile__value">${Math.round(totals.calories)}<span class="nutrition-tile__unit">kcal</span></div>
+          <div class="nutrition-tile__label">Calories</div>
+        </div>
+        <div class="nutrition-tile">
+          <div class="nutrition-tile__value">${Math.round(totals.protein)}<span class="nutrition-tile__unit">g</span></div>
+          <div class="nutrition-tile__label">Protein</div>
+        </div>
+        <div class="nutrition-tile">
+          <div class="nutrition-tile__value">${Math.round(totals.carbs)}<span class="nutrition-tile__unit">g</span></div>
+          <div class="nutrition-tile__label">Carbs</div>
+        </div>
+        <div class="nutrition-tile">
+          <div class="nutrition-tile__value">${Math.round(totals.fat)}<span class="nutrition-tile__unit">g</span></div>
+          <div class="nutrition-tile__label">Fat</div>
+        </div>
+        <div class="nutrition-tile">
+          <div class="nutrition-tile__value">${Math.round(totals.fiber)}<span class="nutrition-tile__unit">g</span></div>
+          <div class="nutrition-tile__label">Fiber</div>
+        </div>
+        <div class="nutrition-tile">
+          <div class="nutrition-tile__value">${Math.round(totals.sugar)}<span class="nutrition-tile__unit">g</span></div>
+          <div class="nutrition-tile__label">Sugar</div>
+        </div>
+        <div class="nutrition-tile">
+          <div class="nutrition-tile__value">${Math.round(totals.sodium)}<span class="nutrition-tile__unit">mg</span></div>
+          <div class="nutrition-tile__label">Sodium</div>
+        </div>
+      </div>
+
+      <p class="nutrition-summary__disclaimer">
+        Estimated from the first few ingredients of each recipe — a rough total, not a precise count.
+      </p>
+    </div>
+  `;
 }
 
 function renderMealPlan() {
@@ -163,6 +294,7 @@ function removeMeal(day, slot, index) {
   setLocalStorage("so-mealplan", mealPlan);
   showToast("Recipe removed from planner", "error");
   renderMealPlan();
+  calculateWeeklyNutrition();
 }
 
 // Generate Shopping List Action
@@ -173,3 +305,4 @@ if (shoppingListBtn) {
 }
 
 renderMealPlan();
+calculateWeeklyNutrition();

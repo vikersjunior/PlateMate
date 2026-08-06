@@ -1,4 +1,13 @@
-import { getParam, getLocalStorage, setLocalStorage, loadHeaderFooter, updateFavoritesBadge, qs, showToast } from "./utils.mjs";
+import {
+  getParam,
+  getLocalStorage,
+  setLocalStorage,
+  loadHeaderFooter,
+  updateFavoritesBadge,
+  qs,
+  showToast,
+  getNutritionForIngredient,
+} from "./utils.mjs";
 import { MOCK_RECIPES } from "./mockRecipes.mjs";
 
 loadHeaderFooter();
@@ -20,37 +29,13 @@ async function getRecipeDetails(id) {
 
     return await response.json();
   } catch (err) {
-    console.warn("Spoonacular API quota or fetch error, using local fallback details:", err);
+    console.warn(
+      "Spoonacular API quota or fetch error, using local fallback details:",
+      err,
+    );
     const local = MOCK_RECIPES.find((r) => String(r.id) === String(id));
     if (local) return local;
     throw err;
-  }
-}
-
-async function getNutritionForIngredient(ingredientName) {
-  try {
-    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(ingredientName)}&pageSize=1&api_key=${usdaKey}`;
-    const response = await fetch(url);
-
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    const food = data.foods && data.foods[0];
-
-    if (!food) return null;
-
-    const nutrients = {};
-    food.foodNutrients.forEach((n) => {
-      if (n.nutrientName === "Energy") nutrients.calories = n.value;
-      if (n.nutrientName === "Protein") nutrients.protein = n.value;
-      if (n.nutrientName === "Total lipid (fat)") nutrients.fat = n.value;
-      if (n.nutrientName === "Carbohydrate, by difference") nutrients.carbs = n.value;
-      if (n.nutrientName === "Fiber, total dietary") nutrients.fiber = n.value;
-    });
-
-    return nutrients;
-  } catch {
-    return null;
   }
 }
 
@@ -61,7 +46,9 @@ function isFavorite(id) {
 
 function toggleFavorite(recipe) {
   let favorites = getLocalStorage("so-favorites") || [];
-  const index = favorites.findIndex((fav) => String(fav.id) === String(recipe.id));
+  const index = favorites.findIndex(
+    (fav) => String(fav.id) === String(recipe.id),
+  );
 
   if (index >= 0) {
     favorites.splice(index, 1);
@@ -96,8 +83,6 @@ function addToMealPlan(recipe, day, slot) {
   setLocalStorage("so-mealplan", mealPlan);
 }
 
-
-
 async function renderRecipeDetail() {
   if (!recipeId) {
     content.innerHTML = "<p>No recipe ID specified.</p>";
@@ -116,7 +101,11 @@ async function renderRecipeDetail() {
     const recipe = await getRecipeDetails(recipeId);
     const isFav = isFavorite(recipe.id);
 
-    const tags = recipe.tags || (recipe.diets && recipe.diets.length > 0 ? recipe.diets : ["Quick", "Classic"]);
+    const tags =
+      recipe.tags ||
+      (recipe.diets && recipe.diets.length > 0
+        ? recipe.diets
+        : ["Quick", "Classic"]);
     const tagsHtml = tags
       .map((t) => `<span class="recipe-detail-tag">${t}</span>`)
       .join("");
@@ -136,7 +125,8 @@ async function renderRecipeDetail() {
       )
       .join("");
 
-    let instructionsHtml = "<p style='color: var(--pm-muted);'>No instructions available for this recipe.</p>";
+    let instructionsHtml =
+      "<p style='color: var(--pm-muted);'>No instructions available for this recipe.</p>";
     if (recipe.analyzedInstructions && recipe.analyzedInstructions.length > 0) {
       const steps = recipe.analyzedInstructions[0].steps || [];
       instructionsHtml = steps
@@ -150,7 +140,9 @@ async function renderRecipeDetail() {
         )
         .join("");
     } else if (recipe.instructions) {
-      const steps = recipe.instructions.split(".").filter((s) => s.trim().length > 0);
+      const steps = recipe.instructions
+        .split(".")
+        .filter((s) => s.trim().length > 0);
       instructionsHtml = steps
         .map(
           (step, i) => `
@@ -343,28 +335,38 @@ async function renderRecipeDetail() {
       });
     }
 
-    document.querySelectorAll("#picker-day-pills .picker-pill").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll("#picker-day-pills .picker-pill").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        selectedDay = btn.dataset.day;
+    document
+      .querySelectorAll("#picker-day-pills .picker-pill")
+      .forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll("#picker-day-pills .picker-pill")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          selectedDay = btn.dataset.day;
+        });
       });
-    });
 
-    document.querySelectorAll("#picker-slot-pills .picker-pill").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll("#picker-slot-pills .picker-pill").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        selectedSlot = btn.dataset.slot;
+    document
+      .querySelectorAll("#picker-slot-pills .picker-pill")
+      .forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll("#picker-slot-pills .picker-pill")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          selectedSlot = btn.dataset.slot;
+        });
       });
-    });
 
     if (submitModalBtn && plannerModal) {
       submitModalBtn.addEventListener("click", () => {
         addToMealPlan(recipe, selectedDay, selectedSlot);
         plannerModal.close();
-        const dayName = selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1);
-        const slotName = selectedSlot.charAt(0).toUpperCase() + selectedSlot.slice(1);
+        const dayName =
+          selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1);
+        const slotName =
+          selectedSlot.charAt(0).toUpperCase() + selectedSlot.slice(1);
         showToast(`Added ${recipe.title} to ${dayName} ${slotName}`, "success");
         if (statusMsg) {
           statusMsg.textContent = `Added to ${dayName} ${selectedSlot}!`;
@@ -375,11 +377,14 @@ async function renderRecipeDetail() {
     // Fetch USDA Nutritional breakdown if available
     if (recipe.extendedIngredients && recipe.extendedIngredients.length > 0) {
       const firstIngredient = recipe.extendedIngredients[0].name;
-      const nutrs = await getNutritionForIngredient(firstIngredient);
+      const nutrs = await getNutritionForIngredient(firstIngredient, usdaKey);
       if (nutrs) {
-        if (nutrs.calories) qs("#nutr-calories").textContent = `${Math.round(nutrs.calories)}`;
-        if (nutrs.protein) qs("#nutr-protein").textContent = `${Math.round(nutrs.protein)}`;
-        if (nutrs.carbs) qs("#nutr-carbs").textContent = `${Math.round(nutrs.carbs)}`;
+        if (nutrs.calories)
+          qs("#nutr-calories").textContent = `${Math.round(nutrs.calories)}`;
+        if (nutrs.protein)
+          qs("#nutr-protein").textContent = `${Math.round(nutrs.protein)}`;
+        if (nutrs.carbs)
+          qs("#nutr-carbs").textContent = `${Math.round(nutrs.carbs)}`;
         if (nutrs.fat) qs("#nutr-fat").textContent = `${Math.round(nutrs.fat)}`;
       }
     }

@@ -51,7 +51,10 @@ function highlightActiveNav() {
 
   navLinks.forEach((link) => {
     const linkPath = new URL(link.href).pathname;
-    if (linkPath === currentPath || (currentPath === "/" && linkPath === "/index.html")) {
+    if (
+      linkPath === currentPath ||
+      (currentPath === "/" && linkPath === "/index.html")
+    ) {
       link.classList.add("active");
     }
   });
@@ -110,4 +113,46 @@ export function showToast(message, type = "success") {
       toast.remove();
     });
   }, 3000);
+}
+
+export async function getNutritionForIngredient(ingredientName, usdaKey) {
+  const cacheKey = "so-nutrition-cache";
+  const cache = getLocalStorage(cacheKey) || {};
+  const normalized = ingredientName.toLowerCase().trim();
+
+  if (cache[normalized]) {
+    return cache[normalized];
+  }
+
+  try {
+    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(ingredientName)}&pageSize=1&api_key=${usdaKey}`;
+    const response = await fetch(url);
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const food = data.foods && data.foods[0];
+
+    if (!food) return null;
+
+    const nutrients = {};
+    food.foodNutrients.forEach((n) => {
+      if (n.nutrientName === "Energy") nutrients.calories = n.value;
+      if (n.nutrientName === "Protein") nutrients.protein = n.value;
+      if (n.nutrientName === "Total lipid (fat)") nutrients.fat = n.value;
+      if (n.nutrientName === "Carbohydrate, by difference")
+        nutrients.carbs = n.value;
+      if (n.nutrientName === "Fiber, total dietary") nutrients.fiber = n.value;
+      if (n.nutrientName === "Sugars, total including NLEA")
+        nutrients.sugar = n.value;
+      if (n.nutrientName === "Sodium, Na") nutrients.sodium = n.value;
+    });
+
+    cache[normalized] = nutrients;
+    setLocalStorage(cacheKey, cache);
+
+    return nutrients;
+  } catch {
+    return null;
+  }
 }
