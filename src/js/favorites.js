@@ -1,5 +1,7 @@
-import { getLocalStorage } from "./utils.mjs";
+import { getLocalStorage, loadHeaderFooter } from "./utils.mjs";
 import { recipeCardTemplate } from "./recipeCard.mjs";
+
+loadHeaderFooter();
 
 const favoritesList = document.querySelector("#favorites-list");
 const favoritesStatus = document.querySelector("#favorites-status");

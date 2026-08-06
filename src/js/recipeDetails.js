@@ -1,4 +1,6 @@
-import { getParam, getLocalStorage, setLocalStorage } from "./utils.mjs";
+import { getParam, getLocalStorage, setLocalStorage, loadHeaderFooter } from "./utils.mjs";
+
+loadHeaderFooter();
 
 const spoonacularKey = import.meta.env.VITE_SPOONACULAR_API_KEY;
 const usdaKey = import.meta.env.VITE_USDA_FDC_API_KEY;

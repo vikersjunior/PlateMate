@@ -1,5 +1,7 @@
-import { qs } from "./utils.mjs";
+import { qs, loadHeaderFooter } from "./utils.mjs";
 import { recipeCardTemplate } from "./recipeCard.mjs";
+
+loadHeaderFooter();
 
 const searchForm = qs("#search-form");
 const resultsStatus = qs("#results-status");
