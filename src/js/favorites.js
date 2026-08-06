@@ -1,5 +1,22 @@
-// Favorites page entry point.
-// Will read saved favorite recipes from localStorage
-// and render them as recipe cards (Week 7).
+import { getLocalStorage } from "./utils.mjs";
+import { recipeCardTemplate } from "./recipeCard.mjs";
 
-console.log("Favorites page loaded.");
+const favoritesList = document.querySelector("#favorites-list");
+const favoritesStatus = document.querySelector("#favorites-status");
+
+function renderFavorites() {
+  const favorites = getLocalStorage("so-favorites") || [];
+
+  if (favorites.length === 0) {
+    favoritesList.innerHTML = "";
+    favoritesStatus.textContent = "You haven't saved any favorites yet.";
+    return;
+  }
+
+  favoritesStatus.textContent = "";
+  favoritesList.innerHTML = favorites
+    .map((recipe) => recipeCardTemplate(recipe))
+    .join("");
+}
+
+renderFavorites();

@@ -13,6 +13,7 @@ export default defineConfig({
         main: resolve(__dirname, "src/index.html"),
         mealPlanner: resolve(__dirname, "src/meal-planner/index.html"),
         favorites: resolve(__dirname, "src/favorites/index.html"),
+        recipeDetails: resolve(__dirname, "src/recipe-details/index.html"),
       },
     },
   },

@@ -156,6 +156,101 @@ main {
   font-size: 1em;
   margin: 0.5em 0;
 }
+/* Recipe Detail Page */
+.recipe-detail {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.recipe-detail img {
+  width: 100%;
+  max-height: 350px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin: 1rem 0;
+}
+
+.recipe-detail h1 {
+  font-size: 1.8rem;
+}
+
+.recipe-detail h2 {
+  color: var(--primary-color);
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.2rem;
+}
+
+.favorite-btn {
+  background-color: white;
+  color: var(--secondary-color);
+  border: 2px solid var(--secondary-color);
+  padding: 0.5em 1em;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.favorite-btn:hover {
+  background-color: var(--secondary-color);
+  color: white;
+}
+
+.ingredient-list,
+.instructions-list {
+  padding-left: 1.5rem;
+}
+
+.ingredient-list li,
+.instructions-list li {
+  margin-bottom: 0.5rem;
+}
+
+.nutrition-list {
+  list-style: none;
+  padding: 0;
+}
+
+.nutrition-item {
+  background-color: white;
+  border: 1px solid var(--light-grey);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: var(--small-font);
+}
+
+.add-to-planner {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.add-to-planner select {
+  padding: 0.4em;
+  border: 1px solid var(--light-grey);
+  border-radius: 4px;
+}
+
+.add-to-planner button {
+  padding: 0.4em 1.2em;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.add-to-planner button:hover {
+  background-color: var(--accent-color);
+}
+
+#add-status {
+  color: var(--primary-color);
+  font-size: var(--small-font);
+  margin-top: 0.5rem;
+}
 
 /* Meal Planner page */
 .meal-planner-grid {

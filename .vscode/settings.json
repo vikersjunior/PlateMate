@@ -1,0 +1,8 @@
+{
+  "editor.formatOnSave": true,
+  "prettier.singleQuote": false,
+  "javascript.preferences.quoteStyle": "double",
+  "typescript.preferences.quoteStyle": "double",
+  "cSpell.words": ["spoonacular"]
+}
+
