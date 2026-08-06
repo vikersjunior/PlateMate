@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PlateMate | Favorites</title>
-    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="/css/style.css" />
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Inter:wght@400;500;600;700&display=swap"
@@ -15,9 +15,19 @@
   <body>
     <header id="main-header"></header>
 
-    <main class="divider">
-      <h1>Your Favorite Recipes</h1>
-      <p id="favorites-status">You haven't saved any favorites yet.</p>
+    <main class="page-container">
+      <div class="favorites-header">
+        <h1>Your Favorites</h1>
+        <p id="favorites-subtitle" class="favorites-subtitle">No favorites yet</p>
+      </div>
+
+      <div id="favorites-empty-state" class="empty-state-card" style="display: none;">
+        <div class="empty-state-icon">❤️</div>
+        <h2>No favorites yet</h2>
+        <p>Tap the heart on any recipe to save it here for later</p>
+        <a href="/index.html" class="empty-state-btn">Discover Recipes</a>
+      </div>
+
       <ul id="favorites-list" class="recipe-list"></ul>
     </main>
 

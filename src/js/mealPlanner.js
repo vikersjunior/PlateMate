@@ -1,50 +1,175 @@
-import { getLocalStorage, setLocalStorage, loadHeaderFooter } from "./utils.mjs";
+import { getLocalStorage, setLocalStorage, loadHeaderFooter, qs, showToast } from "./utils.mjs";
 
 loadHeaderFooter();
 
-function renderMealPlan() {
-  const mealPlan = getLocalStorage("so-mealplan") || {};
+const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+const DAY_LABELS = {
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+  saturday: "Saturday",
+  sunday: "Sunday",
+};
 
-  document.querySelectorAll(".day-column").forEach((column) => {
-    const day = column.dataset.day;
-    const mealsList = column.querySelector(".day-meals");
-    const recipes = mealPlan[day] || [];
+const SLOTS = ["breakfast", "lunch", "dinner"];
+const SLOT_ICONS = {
+  breakfast: "🌅",
+  lunch: "☀️",
+  dinner: "🌙",
+};
 
-    if (recipes.length === 0) {
-      mealsList.innerHTML = "<li class='empty'>No meals planned</li>";
-      return;
+const plannerGrid = qs("#meal-planner-grid");
+const emptyState = qs("#planner-empty-state");
+const subtitle = qs("#planner-subtitle");
+const shoppingListBtn = qs("#shopping-list-btn");
+
+function getMealPlan() {
+  return getLocalStorage("so-mealplan") || {};
+}
+
+function countTotalMeals(mealPlan) {
+  let count = 0;
+  DAYS.forEach((day) => {
+    const dayData = mealPlan[day];
+    if (Array.isArray(dayData)) {
+      count += dayData.length;
+    } else if (dayData && typeof dayData === "object") {
+      SLOTS.forEach((slot) => {
+        if (dayData[slot]) count++;
+      });
     }
-
-    mealsList.innerHTML = recipes
-      .map(
-        (recipe, index) => `
-      <li>
-        <a href="/recipe-details/index.html?id=${recipe.id}">${recipe.title}</a>
-        <button class="remove-meal" data-day="${day}" data-index="${index}">×</button>
-      </li>
-    `,
-      )
-      .join("");
   });
+  return count;
+}
 
-  document.querySelectorAll(".remove-meal").forEach((button) => {
-    button.addEventListener("click", (e) => {
-      const day = e.target.dataset.day;
-      const index = Number(e.target.dataset.index);
-      removeMeal(day, index);
+function renderMealPlan() {
+  const mealPlan = getMealPlan();
+  const totalMeals = countTotalMeals(mealPlan);
+
+  // Update Header & Empty State Visibility
+  if (totalMeals > 0) {
+    if (subtitle) {
+      subtitle.textContent = `${totalMeals} meal${totalMeals !== 1 ? "s" : ""} planned this week`;
+    }
+    if (shoppingListBtn) shoppingListBtn.style.display = "inline-flex";
+    if (emptyState) emptyState.style.display = "none";
+  } else {
+    if (subtitle) {
+      subtitle.textContent = "No meals planned yet — add some recipes!";
+    }
+    if (shoppingListBtn) shoppingListBtn.style.display = "none";
+    if (emptyState) emptyState.style.display = "block";
+  }
+
+  // Render 7 Day Cards
+  if (!plannerGrid) return;
+
+  const daysHtml = DAYS.map((day) => {
+    const dayData = mealPlan[day];
+    const isArray = Array.isArray(dayData);
+
+    const slotsHtml = SLOTS.map((slot, slotIndex) => {
+      let recipe = null;
+      if (isArray) {
+        recipe = dayData[slotIndex] || null;
+      } else if (dayData && typeof dayData === "object") {
+        recipe = dayData[slot] || null;
+      }
+
+      const icon = SLOT_ICONS[slot];
+
+      if (recipe) {
+        return `
+          <div class="planner-slot">
+            <div class="planner-slot-label">
+              <span>${icon}</span>
+              <span>${slot}</span>
+            </div>
+            <div class="planner-meal-card">
+              <a href="/recipe-details/index.html?id=${recipe.id}">
+                <img
+                  src="${recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&h=150&fit=crop"}"
+                  alt="${recipe.title}"
+                  class="planner-meal-thumb"
+                />
+                <div class="planner-meal-info">
+                  <p class="planner-meal-title">${recipe.title}</p>
+                </div>
+              </a>
+              <button
+                type="button"
+                class="planner-meal-remove"
+                data-day="${day}"
+                data-slot="${slot}"
+                data-index="${slotIndex}"
+                title="Remove meal"
+              >&times;</button>
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="planner-slot">
+          <div class="planner-slot-label">
+            <span>${icon}</span>
+            <span>${slot}</span>
+          </div>
+          <a href="/index.html" class="planner-add-slot-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add recipe
+          </a>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="planner-day-card">
+        <div class="planner-day-name">${DAY_LABELS[day]}</div>
+        ${slotsHtml}
+      </div>
+    `;
+  }).join("");
+
+  plannerGrid.innerHTML = daysHtml;
+
+  // Attach Remove Meal Handlers
+  document.querySelectorAll(".planner-meal-remove").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const d = btn.dataset.day;
+      const s = btn.dataset.slot;
+      const idx = Number(btn.dataset.index);
+      removeMeal(d, s, idx);
     });
   });
 }
 
-function removeMeal(day, index) {
-  const mealPlan = getLocalStorage("so-mealplan") || {};
+function removeMeal(day, slot, index) {
+  const mealPlan = getMealPlan();
 
-  if (mealPlan[day]) {
+  if (Array.isArray(mealPlan[day])) {
     mealPlan[day].splice(index, 1);
-    setLocalStorage("so-mealplan", mealPlan);
+  } else if (mealPlan[day] && typeof mealPlan[day] === "object") {
+    delete mealPlan[day][slot];
   }
 
+  setLocalStorage("so-mealplan", mealPlan);
+  showToast("Recipe removed from planner", "error");
   renderMealPlan();
+}
+
+// Generate Shopping List Action
+if (shoppingListBtn) {
+  shoppingListBtn.addEventListener("click", () => {
+    window.location.href = "/shopping/index.html";
+  });
 }
 
 renderMealPlan();

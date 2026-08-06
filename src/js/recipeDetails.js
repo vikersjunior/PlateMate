@@ -1,4 +1,5 @@
-import { getParam, getLocalStorage, setLocalStorage, loadHeaderFooter } from "./utils.mjs";
+import { getParam, getLocalStorage, setLocalStorage, loadHeaderFooter, updateFavoritesBadge, qs, showToast } from "./utils.mjs";
+import { MOCK_RECIPES } from "./mockRecipes.mjs";
 
 loadHeaderFooter();
 
@@ -6,204 +7,391 @@ const spoonacularKey = import.meta.env.VITE_SPOONACULAR_API_KEY;
 const usdaKey = import.meta.env.VITE_USDA_FDC_API_KEY;
 
 const recipeId = getParam("id");
-const content = document.querySelector("#recipe-detail-content");
+const content = qs("#recipe-detail-content");
 
 async function getRecipeDetails(id) {
-  const url = `https://api.spoonacular.com/recipes/${id}/information?apiKey=${spoonacularKey}`;
-  const response = await fetch(url);
+  try {
+    const url = `https://api.spoonacular.com/recipes/${id}/information?apiKey=${spoonacularKey}`;
+    const response = await fetch(url);
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! Status: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (err) {
+    console.warn("Spoonacular API quota or fetch error, using local fallback details:", err);
+    const local = MOCK_RECIPES.find((r) => String(r.id) === String(id));
+    if (local) return local;
+    throw err;
   }
-
-  return await response.json();
 }
 
 async function getNutritionForIngredient(ingredientName) {
-  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(ingredientName)}&pageSize=1&api_key=${usdaKey}`;
-  const response = await fetch(url);
+  try {
+    const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(ingredientName)}&pageSize=1&api_key=${usdaKey}`;
+    const response = await fetch(url);
 
-  if (!response.ok) {
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const food = data.foods && data.foods[0];
+
+    if (!food) return null;
+
+    const nutrients = {};
+    food.foodNutrients.forEach((n) => {
+      if (n.nutrientName === "Energy") nutrients.calories = n.value;
+      if (n.nutrientName === "Protein") nutrients.protein = n.value;
+      if (n.nutrientName === "Total lipid (fat)") nutrients.fat = n.value;
+      if (n.nutrientName === "Carbohydrate, by difference") nutrients.carbs = n.value;
+      if (n.nutrientName === "Fiber, total dietary") nutrients.fiber = n.value;
+    });
+
+    return nutrients;
+  } catch {
     return null;
   }
-
-  const data = await response.json();
-  const food = data.foods && data.foods[0];
-
-  if (!food) {
-    return null;
-  }
-
-  const nutrients = {};
-  food.foodNutrients.forEach((n) => {
-    if (n.nutrientName === "Energy") nutrients.calories = n.value;
-    if (n.nutrientName === "Protein") nutrients.protein = n.value;
-    if (n.nutrientName === "Total lipid (fat)") nutrients.fat = n.value;
-    if (n.nutrientName === "Carbohydrate, by difference")
-      nutrients.carbs = n.value;
-  });
-
-  return nutrients;
-}
-
-function ingredientListTemplate(ingredients) {
-  return ingredients.map((ing) => `<li>${ing.original}</li>`).join("");
-}
-
-function instructionsTemplate(recipe) {
-  if (!recipe.analyzedInstructions.length) {
-    return "<p>No instructions available for this recipe.</p>";
-  }
-
-  const steps = recipe.analyzedInstructions[0].steps
-    .map((step) => `<li>${step.step}</li>`)
-    .join("");
-
-  return `<ol class="instructions-list">${steps}</ol>`;
-}
-
-function nutritionItemTemplate(name, nutrients) {
-  if (!nutrients) {
-    return `<li class="nutrition-item">${name}: nutrition data unavailable</li>`;
-  }
-
-  return `<li class="nutrition-item">
-    <strong>${name}</strong>
-    ${nutrients.calories ? ` — ${Math.round(nutrients.calories)} cal` : ""}
-    ${nutrients.protein ? `, ${Math.round(nutrients.protein)}g protein` : ""}
-    ${nutrients.fat ? `, ${Math.round(nutrients.fat)}g fat` : ""}
-    ${nutrients.carbs ? `, ${Math.round(nutrients.carbs)}g carbs` : ""}
-  </li>`;
-}
-
-function dayOptionsTemplate() {
-  const days = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-  ];
-  return days
-    .map(
-      (day) =>
-        `<option value="${day}">${day[0].toUpperCase() + day.slice(1)}</option>`,
-    )
-    .join("");
-}
-
-function addToMealPlan(recipe, day) {
-  const mealPlan = getLocalStorage("so-mealplan") || {};
-
-  if (!mealPlan[day]) {
-    mealPlan[day] = [];
-  }
-
-  mealPlan[day].push({
-    id: recipe.id,
-    title: recipe.title,
-    image: recipe.image,
-  });
-
-  setLocalStorage("so-mealplan", mealPlan);
 }
 
 function isFavorite(id) {
   const favorites = getLocalStorage("so-favorites") || [];
-  return favorites.some((fav) => fav.id === id);
+  return favorites.some((fav) => String(fav.id) === String(id));
 }
 
 function toggleFavorite(recipe) {
   let favorites = getLocalStorage("so-favorites") || [];
+  const index = favorites.findIndex((fav) => String(fav.id) === String(recipe.id));
 
-  if (isFavorite(recipe.id)) {
-    favorites = favorites.filter((fav) => fav.id !== recipe.id);
+  if (index >= 0) {
+    favorites.splice(index, 1);
   } else {
     favorites.push({
       id: recipe.id,
       title: recipe.title,
       image: recipe.image,
-      readyInMinutes: recipe.readyInMinutes,
+      readyInMinutes: recipe.readyInMinutes || recipe.time,
       servings: recipe.servings,
     });
   }
 
   setLocalStorage("so-favorites", favorites);
+  updateFavoritesBadge();
 }
 
+function addToMealPlan(recipe, day, slot) {
+  const mealPlan = getLocalStorage("so-mealplan") || {};
+
+  if (!mealPlan[day] || Array.isArray(mealPlan[day])) {
+    mealPlan[day] = {};
+  }
+
+  mealPlan[day][slot] = {
+    id: recipe.id,
+    title: recipe.title,
+    image: recipe.image,
+    extendedIngredients: recipe.extendedIngredients,
+  };
+
+  setLocalStorage("so-mealplan", mealPlan);
+}
+
+
+
 async function renderRecipeDetail() {
+  if (!recipeId) {
+    content.innerHTML = "<p>No recipe ID specified.</p>";
+    return;
+  }
+
+  // Render Primary Green Preloader Animation while loading
+  content.innerHTML = `
+    <div class="loading-box" style="padding: 6rem 1.5rem;">
+      <div class="loader"></div>
+      <p>Loading recipe details...</p>
+    </div>
+  `;
+
   try {
     const recipe = await getRecipeDetails(recipeId);
+    const isFav = isFavorite(recipe.id);
 
-    content.innerHTML = `
-      <div class="recipe-detail">
-        <h1>${recipe.title}</h1>
-        <img src="${recipe.image}" alt="${recipe.title}" />
-        <button id="favorite-btn" type="button" class="favorite-btn">
-          ${isFavorite(recipe.id) ? "★ Remove from Favorites" : "☆ Add to Favorites"}
-        </button>
-        <p>${recipe.readyInMinutes} min · Serves ${recipe.servings}</p>
+    const tags = recipe.tags || (recipe.diets && recipe.diets.length > 0 ? recipe.diets : ["Quick", "Classic"]);
+    const tagsHtml = tags
+      .map((t) => `<span class="recipe-detail-tag">${t}</span>`)
+      .join("");
 
-        <h2>Ingredients</h2>
-        <ul class="ingredient-list">
-          ${ingredientListTemplate(recipe.extendedIngredients)}
-        </ul>
-
-        <h2>Instructions</h2>
-        ${instructionsTemplate(recipe)}
-
-        <h2>Nutrition (per key ingredient)</h2>
-        <ul id="nutrition-list" class="nutrition-list">
-          <li>Loading nutrition data...</li>
-        </ul>
-
-        <h2>Add to Meal Planner</h2>
-        <div class="add-to-planner">
-          <select id="day-select">
-            ${dayOptionsTemplate()}
-          </select>
-          <button id="add-to-planner-btn" type="button">Add to Plan</button>
-        </div>
-        <p id="add-status"></p>
-      </div>
-    `;
-
-    const nutritionList = document.querySelector("#nutrition-list");
-    const topIngredients = recipe.extendedIngredients.slice(0, 5);
-
-    const nutritionResults = await Promise.all(
-      topIngredients.map((ing) => getNutritionForIngredient(ing.name)),
-    );
-
-    const nutritionHtml = topIngredients
-      .map((ing, index) =>
-        nutritionItemTemplate(ing.name, nutritionResults[index]),
+    const ingredientsHtml = (recipe.extendedIngredients || [])
+      .map(
+        (ing) => `
+        <li class="ingredient-item">
+          <span class="check-icon">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3E8E5A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <span>${ing.original || ing.name}</span>
+        </li>
+      `,
       )
       .join("");
 
-    nutritionList.innerHTML = nutritionHtml;
+    let instructionsHtml = "<p style='color: var(--pm-muted);'>No instructions available for this recipe.</p>";
+    if (recipe.analyzedInstructions && recipe.analyzedInstructions.length > 0) {
+      const steps = recipe.analyzedInstructions[0].steps || [];
+      instructionsHtml = steps
+        .map(
+          (step, i) => `
+          <li class="instruction-item">
+            <span class="step-badge">${i + 1}</span>
+            <p class="step-text">${step.step}</p>
+          </li>
+        `,
+        )
+        .join("");
+    } else if (recipe.instructions) {
+      const steps = recipe.instructions.split(".").filter((s) => s.trim().length > 0);
+      instructionsHtml = steps
+        .map(
+          (step, i) => `
+          <li class="instruction-item">
+            <span class="step-badge">${i + 1}</span>
+            <p class="step-text">${step.trim()}</p>
+          </li>
+        `,
+        )
+        .join("");
+    }
 
-    document
-      .querySelector("#add-to-planner-btn")
-      .addEventListener("click", () => {
-        const day = document.querySelector("#day-select").value;
-        addToMealPlan(recipe, day);
-        document.querySelector("#add-status").textContent =
-          `Added "${recipe.title}" to ${day}.`;
+    content.innerHTML = `
+      <!-- Back Link -->
+      <a href="javascript:history.back()" class="recipe-back-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 5l-7 7 7 7" />
+        </svg>
+        Back
+      </a>
+
+      <!-- Hero Image -->
+      <div class="recipe-detail-hero">
+        <img src="${recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1200&h=600&fit=crop"}" alt="${recipe.title}" />
+        <div class="recipe-hero-overlay"></div>
+        <div class="recipe-hero-cuisine">${recipe.cuisine || "Italian"}</div>
+      </div>
+
+      <div class="recipe-detail-grid">
+        <!-- Main Info -->
+        <div class="recipe-detail-main">
+          <div class="recipe-detail-header-row">
+            <h1 class="recipe-detail-title">${recipe.title}</h1>
+            <button type="button" id="detail-fav-btn" class="recipe-detail-fav-btn" title="Toggle Favorite">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="${isFav ? "#D94F3D" : "none"}" stroke="${isFav ? "#D94F3D" : "#6F746E"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="recipe-detail-meta-row">
+            <div style="display: flex; align-items: center; gap: 0.35rem; color: #6F746E; font-size: 0.9rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span>${recipe.readyInMinutes || recipe.time || 20} min</span>
+            </div>
+            <span style="color: #6F746E; font-size: 0.9rem;">·</span>
+            <div style="display: flex; align-items: center; gap: 0.35rem; color: #6F746E; font-size: 0.9rem;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5.25 10C7.04493 10 8.5 8.54493 8.5 6.75C8.5 4.95507 7.04493 3.5 5.25 3.5C3.45507 3.5 2 4.95507 2 6.75C2 8.54493 3.45507 10 5.25 10Z" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M0.639648 12.5001C1.13908 11.7322 1.8224 11.1012 2.62756 10.6644C3.43273 10.2276 4.33425 9.99878 5.25027 9.99878C6.1663 9.99878 7.06782 10.2276 7.87298 10.6644C8.67815 11.1012 9.36147 11.7322 9.8609 12.5001" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10.75 10C11.666 9.99946 12.5676 10.2279 13.3728 10.6645C14.178 11.1011 14.8613 11.7321 15.3606 12.5" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9.54297 3.73125C9.98754 3.55393 10.4658 3.477 10.9435 3.50595C11.4213 3.5349 11.8868 3.66901 12.3067 3.89871C12.7266 4.1284 13.0906 4.44801 13.3726 4.83469C13.6547 5.22138 13.8479 5.66559 13.9384 6.13559C14.0289 6.60558 14.0144 7.08977 13.8961 7.55353C13.7777 8.0173 13.5584 8.44921 13.2538 8.81839C12.9492 9.18758 12.5668 9.48492 12.134 9.68918C11.7011 9.89344 11.2285 9.99958 10.7498 10" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>${recipe.servings ? (typeof recipe.servings === "number" ? `Serves ${recipe.servings}` : recipe.servings) : "Serves 4"}</span>
+            </div>
+          </div>
+
+          <div class="recipe-detail-tags">
+            ${tagsHtml}
+          </div>
+
+          <p class="recipe-detail-description">${recipe.summary ? recipe.summary.replace(/<[^>]*>?/gm, "") : "The Roman original — silky eggs, Pecorino Romano, guanciale, and black pepper. No cream. No garlic. Just technique and great ingredients."}</p>
+
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem;">Ingredients</h2>
+          <ul style="list-style: none; padding: 0; margin-bottom: 2.5rem;">
+            ${ingredientsHtml}
+          </ul>
+
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem;">Instructions</h2>
+          <ol style="list-style: none; padding: 0;">
+            ${instructionsHtml}
+          </ol>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="recipe-detail-sidebar">
+          <!-- Add to Planner CTA Card -->
+          <div class="sidebar-card">
+            <button type="button" id="open-planner-modal-btn" class="add-planner-cta-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              Add to Planner
+            </button>
+            <p id="planner-add-status" style="margin-top: 0.5rem; text-align: center; color: var(--pm-green); font-size: 0.85rem; font-weight: 500;"></p>
+          </div>
+
+          <!-- Nutrition Card -->
+          <div class="sidebar-card">
+            <h3 class="sidebar-card-title">Nutrition (per serving)</h3>
+            <div class="nutrition-list">
+              <div class="nutrition-row">
+                <span class="nutrition-label">Calories</span>
+                <span class="nutrition-val"><span id="nutr-calories">${recipe.nutrition ? recipe.nutrition.calories || "580" : "580"}</span> <span class="unit">kcal</span></span>
+              </div>
+              <div class="nutrition-row">
+                <span class="nutrition-label">Protein</span>
+                <span class="nutrition-val"><span id="nutr-protein">${recipe.nutrition ? recipe.nutrition.protein || "28" : "28"}</span> <span class="unit">g</span></span>
+              </div>
+              <div class="nutrition-row">
+                <span class="nutrition-label">Carbs</span>
+                <span class="nutrition-val"><span id="nutr-carbs">${recipe.nutrition ? recipe.nutrition.carbs || "62" : "62"}</span> <span class="unit">g</span></span>
+              </div>
+              <div class="nutrition-row">
+                <span class="nutrition-label">Fat</span>
+                <span class="nutrition-val"><span id="nutr-fat">${recipe.nutrition ? recipe.nutrition.fat || "24" : "24"}</span> <span class="unit">g</span></span>
+              </div>
+              <div class="nutrition-row">
+                <span class="nutrition-label">Fiber</span>
+                <span class="nutrition-val"><span id="nutr-fiber">${recipe.nutrition ? recipe.nutrition.fiber || "3" : "3"}</span> <span class="unit">g</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add to Planner Modal Dialog -->
+      <dialog id="planner-picker-modal" class="planner-picker-modal">
+        <div class="planner-picker-content">
+          <h3 class="planner-picker-title">Add to Planner</h3>
+
+          <div style="margin-bottom: 1.25rem;">
+            <div class="picker-group-label">Day</div>
+            <div class="picker-pills" id="picker-day-pills">
+              <button type="button" class="picker-pill active" data-day="monday">Mon</button>
+              <button type="button" class="picker-pill" data-day="tuesday">Tue</button>
+              <button type="button" class="picker-pill" data-day="wednesday">Wed</button>
+              <button type="button" class="picker-pill" data-day="thursday">Thu</button>
+              <button type="button" class="picker-pill" data-day="friday">Fri</button>
+              <button type="button" class="picker-pill" data-day="saturday">Sat</button>
+              <button type="button" class="picker-pill" data-day="sunday">Sun</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1.5rem;">
+            <div class="picker-group-label">Meal</div>
+            <div class="picker-pills" id="picker-slot-pills">
+              <button type="button" class="picker-pill" data-slot="breakfast">Breakfast</button>
+              <button type="button" class="picker-pill" data-slot="lunch">Lunch</button>
+              <button type="button" class="picker-pill active" data-slot="dinner">Dinner</button>
+            </div>
+          </div>
+
+          <div class="picker-actions">
+            <button type="button" id="picker-cancel-btn" class="picker-cancel-btn">Cancel</button>
+            <button type="button" id="picker-submit-btn" class="picker-submit-btn">Add to Planner</button>
+          </div>
+        </div>
+      </dialog>
+    `;
+
+    // Favorite Button Handler
+    const favBtn = qs("#detail-fav-btn");
+    if (favBtn) {
+      favBtn.addEventListener("click", () => {
+        toggleFavorite(recipe);
+        const nowFav = isFavorite(recipe.id);
+        const svg = favBtn.querySelector("svg");
+        if (svg) {
+          svg.setAttribute("fill", nowFav ? "#D94F3D" : "none");
+          svg.setAttribute("stroke", nowFav ? "#D94F3D" : "#6F746E");
+        }
       });
+    }
 
-    document.querySelector("#favorite-btn").addEventListener("click", () => {
-      toggleFavorite(recipe);
-      const btn = document.querySelector("#favorite-btn");
-      btn.textContent = isFavorite(recipe.id)
-        ? "★ Remove from Favorites"
-        : "☆ Add to Favorites";
+    // Modal Picker State & Handlers
+    let selectedDay = "monday";
+    let selectedSlot = "dinner";
+
+    const plannerModal = qs("#planner-picker-modal");
+    const openModalBtn = qs("#open-planner-modal-btn");
+    const cancelModalBtn = qs("#picker-cancel-btn");
+    const submitModalBtn = qs("#picker-submit-btn");
+    const statusMsg = qs("#planner-add-status");
+
+    if (openModalBtn && plannerModal) {
+      openModalBtn.addEventListener("click", () => {
+        plannerModal.showModal();
+      });
+    }
+
+    if (cancelModalBtn && plannerModal) {
+      cancelModalBtn.addEventListener("click", () => {
+        plannerModal.close();
+      });
+    }
+
+    document.querySelectorAll("#picker-day-pills .picker-pill").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#picker-day-pills .picker-pill").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedDay = btn.dataset.day;
+      });
     });
+
+    document.querySelectorAll("#picker-slot-pills .picker-pill").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#picker-slot-pills .picker-pill").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedSlot = btn.dataset.slot;
+      });
+    });
+
+    if (submitModalBtn && plannerModal) {
+      submitModalBtn.addEventListener("click", () => {
+        addToMealPlan(recipe, selectedDay, selectedSlot);
+        plannerModal.close();
+        const dayName = selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1);
+        const slotName = selectedSlot.charAt(0).toUpperCase() + selectedSlot.slice(1);
+        showToast(`Added ${recipe.title} to ${dayName} ${slotName}`, "success");
+        if (statusMsg) {
+          statusMsg.textContent = `Added to ${dayName} ${selectedSlot}!`;
+        }
+      });
+    }
+
+    // Fetch USDA Nutritional breakdown if available
+    if (recipe.extendedIngredients && recipe.extendedIngredients.length > 0) {
+      const firstIngredient = recipe.extendedIngredients[0].name;
+      const nutrs = await getNutritionForIngredient(firstIngredient);
+      if (nutrs) {
+        if (nutrs.calories) qs("#nutr-calories").textContent = `${Math.round(nutrs.calories)}`;
+        if (nutrs.protein) qs("#nutr-protein").textContent = `${Math.round(nutrs.protein)}`;
+        if (nutrs.carbs) qs("#nutr-carbs").textContent = `${Math.round(nutrs.carbs)}`;
+        if (nutrs.fat) qs("#nutr-fat").textContent = `${Math.round(nutrs.fat)}`;
+      }
+    }
   } catch (error) {
-    console.error("Failed to load recipe:", error);
-    content.innerHTML = "<p>Failed to load recipe. Please try again.</p>";
+    console.error("Failed to load recipe detail:", error);
+    content.innerHTML = `
+      <div style="text-align: center; padding: 4rem 1rem;">
+        <h2>Failed to load recipe</h2>
+        <p style="color: var(--pm-muted); margin-bottom: 1.5rem;">Could not fetch details for this recipe.</p>
+        <a href="/index.html" class="empty-state-btn">Back to Home</a>
+      </div>
+    `;
   }
 }
 
