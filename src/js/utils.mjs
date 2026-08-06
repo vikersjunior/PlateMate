@@ -156,3 +156,42 @@ export async function getNutritionForIngredient(ingredientName, usdaKey) {
     return null;
   }
 }
+
+export function parseRecipeNutrition(recipe) {
+  const defaultValues = {
+    calories: 520,
+    protein: 24,
+    carbs: 55,
+    fat: 20,
+    fiber: 4,
+    sugar: 5,
+    sodium: 580,
+  };
+
+  if (!recipe) return defaultValues;
+
+  const res = { ...defaultValues };
+
+  if (recipe.nutrition && Array.isArray(recipe.nutrition.nutrients)) {
+    recipe.nutrition.nutrients.forEach((n) => {
+      const name = (n.name || "").toLowerCase();
+      if (name.includes("calorie")) res.calories = Math.round(n.amount);
+      if (name === "protein") res.protein = Math.round(n.amount);
+      if (name.includes("carbohydrate")) res.carbs = Math.round(n.amount);
+      if (name === "fat") res.fat = Math.round(n.amount);
+      if (name.includes("fiber")) res.fiber = Math.round(n.amount);
+      if (name.includes("sugar")) res.sugar = Math.round(n.amount);
+      if (name === "sodium") res.sodium = Math.round(n.amount);
+    });
+  } else if (recipe.nutrition && typeof recipe.nutrition === "object") {
+    if (recipe.nutrition.calories) res.calories = Math.round(Number(recipe.nutrition.calories));
+    if (recipe.nutrition.protein) res.protein = Math.round(Number(recipe.nutrition.protein));
+    if (recipe.nutrition.carbs) res.carbs = Math.round(Number(recipe.nutrition.carbs));
+    if (recipe.nutrition.fat) res.fat = Math.round(Number(recipe.nutrition.fat));
+    if (recipe.nutrition.fiber) res.fiber = Math.round(Number(recipe.nutrition.fiber));
+    if (recipe.nutrition.sugar) res.sugar = Math.round(Number(recipe.nutrition.sugar));
+    if (recipe.nutrition.sodium) res.sodium = Math.round(Number(recipe.nutrition.sodium));
+  }
+
+  return res;
+}

@@ -4,7 +4,7 @@ import {
   loadHeaderFooter,
   qs,
   showToast,
-  getNutritionForIngredient,
+  parseRecipeNutrition,
 } from "./utils.mjs";
 
 loadHeaderFooter();
@@ -34,8 +34,6 @@ const SLOT_ICONS = {
   lunch: "☀️",
   dinner: "🌙",
 };
-
-const usdaKey = import.meta.env.VITE_USDA_FDC_API_KEY;
 
 const plannerGrid = qs("#meal-planner-grid");
 const emptyState = qs("#planner-empty-state");
@@ -90,15 +88,6 @@ async function calculateWeeklyNutrition() {
     return;
   }
 
-  if (nutritionSummaryEl) {
-    nutritionSummaryEl.innerHTML = `
-      <div class="loading-box">
-        <div class="loader"></div>
-        <p>Calculating weekly nutrition...</p>
-      </div>
-    `;
-  }
-
   const totals = {
     calories: 0,
     protein: 0,
@@ -110,20 +99,14 @@ async function calculateWeeklyNutrition() {
   };
 
   for (const meal of meals) {
-    const ingredients = (meal.extendedIngredients || []).slice(0, 3);
-
-    for (const ing of ingredients) {
-      const nutrients = await getNutritionForIngredient(ing.name, usdaKey);
-      if (!nutrients) continue;
-
-      totals.calories += nutrients.calories || 0;
-      totals.protein += nutrients.protein || 0;
-      totals.fat += nutrients.fat || 0;
-      totals.carbs += nutrients.carbs || 0;
-      totals.fiber += nutrients.fiber || 0;
-      totals.sugar += nutrients.sugar || 0;
-      totals.sodium += nutrients.sodium || 0;
-    }
+    const nutrition = parseRecipeNutrition(meal);
+    totals.calories += nutrition.calories || 0;
+    totals.protein += nutrition.protein || 0;
+    totals.carbs += nutrition.carbs || 0;
+    totals.fat += nutrition.fat || 0;
+    totals.fiber += nutrition.fiber || 0;
+    totals.sugar += nutrition.sugar || 0;
+    totals.sodium += nutrition.sodium || 0;
   }
 
   renderWeeklyNutrition(totals, meals.length);
@@ -169,7 +152,7 @@ function renderWeeklyNutrition(totals, mealCount) {
       </div>
 
       <p class="nutrition-summary__disclaimer">
-        Estimated from the first few ingredients of each recipe — a rough total, not a precise count.
+        Estimated from the first few ingredients of each recipe, a rough total, not a precise count.
       </p>
     </div>
   `;

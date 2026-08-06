@@ -6,14 +6,13 @@ import {
   updateFavoritesBadge,
   qs,
   showToast,
-  getNutritionForIngredient,
+  parseRecipeNutrition,
 } from "./utils.mjs";
 import { MOCK_RECIPES } from "./mockRecipes.mjs";
 
 loadHeaderFooter();
 
 const spoonacularKey = import.meta.env.VITE_SPOONACULAR_API_KEY;
-const usdaKey = import.meta.env.VITE_USDA_FDC_API_KEY;
 
 const recipeId = getParam("id");
 const content = qs("#recipe-detail-content");
@@ -67,7 +66,7 @@ function toggleFavorite(recipe) {
 }
 
 function addToMealPlan(recipe, day, slot) {
-  const mealPlan = getLocalStorage("so-mealplan") || {};
+  let mealPlan = getLocalStorage("so-mealplan") || {};
 
   if (!mealPlan[day] || Array.isArray(mealPlan[day])) {
     mealPlan[day] = {};
@@ -78,6 +77,7 @@ function addToMealPlan(recipe, day, slot) {
     title: recipe.title,
     image: recipe.image,
     extendedIngredients: recipe.extendedIngredients,
+    nutrition: parseRecipeNutrition(recipe),
   };
 
   setLocalStorage("so-mealplan", mealPlan);
@@ -100,6 +100,7 @@ async function renderRecipeDetail() {
   try {
     const recipe = await getRecipeDetails(recipeId);
     const isFav = isFavorite(recipe.id);
+    const nutrition = parseRecipeNutrition(recipe);
 
     const tags =
       recipe.tags ||
@@ -148,7 +149,7 @@ async function renderRecipeDetail() {
           (step, i) => `
           <li class="instruction-item">
             <span class="step-badge">${i + 1}</span>
-            <p class="step-text">${step.trim()}</p>
+            <p class="step-text">${step.trim()}.</p>
           </li>
         `,
         )
@@ -156,72 +157,54 @@ async function renderRecipeDetail() {
     }
 
     content.innerHTML = `
-      <!-- Back Link -->
-      <a href="javascript:history.back()" class="recipe-back-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5M12 5l-7 7 7 7" />
-        </svg>
-        Back
-      </a>
-
-      <!-- Hero Image -->
       <div class="recipe-detail-hero">
         <img src="${recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1200&h=600&fit=crop"}" alt="${recipe.title}" />
         <div class="recipe-hero-overlay"></div>
-        <div class="recipe-hero-cuisine">${recipe.cuisine || "Italian"}</div>
+        <div class="recipe-hero-cuisine">${recipe.cuisine || "Recipe"}</div>
       </div>
 
       <div class="recipe-detail-grid">
-        <!-- Main Info -->
         <div class="recipe-detail-main">
           <div class="recipe-detail-header-row">
             <h1 class="recipe-detail-title">${recipe.title}</h1>
-            <button type="button" id="detail-fav-btn" class="recipe-detail-fav-btn" title="Toggle Favorite">
+            <button type="button" id="detail-fav-btn" class="recipe-detail-fav-btn ${isFav ? "is-favorite" : ""}" aria-label="Save to favorites">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="${isFav ? "#D94F3D" : "none"}" stroke="${isFav ? "#D94F3D" : "#6F746E"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
               </svg>
             </button>
           </div>
 
           <div class="recipe-detail-meta-row">
-            <div style="display: flex; align-items: center; gap: 0.35rem; color: #6F746E; font-size: 0.9rem;">
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
               </svg>
-              <span>${recipe.readyInMinutes || recipe.time || 20} min</span>
+              <span>${recipe.readyInMinutes || 30} min</span>
             </div>
-            <span style="color: #6F746E; font-size: 0.9rem;">·</span>
-            <div style="display: flex; align-items: center; gap: 0.35rem; color: #6F746E; font-size: 0.9rem;">
+            <span>·</span>
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M5.25 10C7.04493 10 8.5 8.54493 8.5 6.75C8.5 4.95507 7.04493 3.5 5.25 3.5C3.45507 3.5 2 4.95507 2 6.75C2 8.54493 3.45507 10 5.25 10Z" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M0.639648 12.5001C1.13908 11.7322 1.8224 11.1012 2.62756 10.6644C3.43273 10.2276 4.33425 9.99878 5.25027 9.99878C6.1663 9.99878 7.06782 10.2276 7.87298 10.6644C8.67815 11.1012 9.36147 11.7322 9.8609 12.5001" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M10.75 10C11.666 9.99946 12.5676 10.2279 13.3728 10.6645C14.178 11.1011 14.8613 11.7321 15.3606 12.5" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M9.54297 3.73125C9.98754 3.55393 10.4658 3.477 10.9435 3.50595C11.4213 3.5349 11.8868 3.66901 12.3067 3.89871C12.7266 4.1284 13.0906 4.44801 13.3726 4.83469C13.6547 5.22138 13.8479 5.66559 13.9384 6.13559C14.0289 6.60558 14.0144 7.08977 13.8961 7.55353C13.7777 8.0173 13.5584 8.44921 13.2538 8.81839C12.9492 9.18758 12.5668 9.48492 12.134 9.68918C11.7011 9.89344 11.2285 9.99958 10.7498 10" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9.54297 3.73125C9.98754 3.55393 10.4658 3.477 10.9435 3.50595C11.4213 3.5349 11.8868 3.66901 12.3067 3.89871C12.7266 4.1284 13.0906 4.44801 13.3726 4.8369C13.6547 5.22579 13.8454 5.67137 13.9318 6.14324C14.0181 6.61511 13.9974 7.10006 13.8711 7.56477C13.7448 8.02948 13.5168 8.45938 13.2023 8.825" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <span>${recipe.servings ? (typeof recipe.servings === "number" ? `Serves ${recipe.servings}` : recipe.servings) : "Serves 4"}</span>
+              <span>Serves ${recipe.servings || 4}</span>
             </div>
           </div>
 
-          <div class="recipe-detail-tags">
-            ${tagsHtml}
-          </div>
-
-          <p class="recipe-detail-description">${recipe.summary ? recipe.summary.replace(/<[^>]*>?/gm, "") : "The Roman original — silky eggs, Pecorino Romano, guanciale, and black pepper. No cream. No garlic. Just technique and great ingredients."}</p>
+          <div class="recipe-detail-tags">${tagsHtml}</div>
+          ${recipe.summary ? `<p class="recipe-detail-description">${recipe.summary.replace(/<[^>]*>?/gm, "")}</p>` : ""}
 
           <h2 style="font-size: 1.3rem; margin-bottom: 1rem;">Ingredients</h2>
-          <ul style="list-style: none; padding: 0; margin-bottom: 2.5rem;">
-            ${ingredientsHtml}
-          </ul>
+          <ul style="list-style: none; padding: 0; margin-bottom: 2.5rem;">${ingredientsHtml}</ul>
 
           <h2 style="font-size: 1.3rem; margin-bottom: 1rem;">Instructions</h2>
-          <ol style="list-style: none; padding: 0;">
-            ${instructionsHtml}
-          </ol>
+          <ol style="list-style: none; padding: 0;">${instructionsHtml}</ol>
         </div>
 
-        <!-- Sidebar -->
         <div class="recipe-detail-sidebar">
-          <!-- Add to Planner CTA Card -->
+          <!-- Add to Planner Card -->
           <div class="sidebar-card">
             <button type="button" id="open-planner-modal-btn" class="add-planner-cta-btn">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -241,23 +224,31 @@ async function renderRecipeDetail() {
             <div class="nutrition-list">
               <div class="nutrition-row">
                 <span class="nutrition-label">Calories</span>
-                <span class="nutrition-val"><span id="nutr-calories">${recipe.nutrition ? recipe.nutrition.calories || "580" : "580"}</span> <span class="unit">kcal</span></span>
+                <span class="nutrition-val"><span>${nutrition.calories}</span> <span class="unit">kcal</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Protein</span>
-                <span class="nutrition-val"><span id="nutr-protein">${recipe.nutrition ? recipe.nutrition.protein || "28" : "28"}</span> <span class="unit">g</span></span>
+                <span class="nutrition-val"><span>${nutrition.protein}</span> <span class="unit">g</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Carbs</span>
-                <span class="nutrition-val"><span id="nutr-carbs">${recipe.nutrition ? recipe.nutrition.carbs || "62" : "62"}</span> <span class="unit">g</span></span>
+                <span class="nutrition-val"><span>${nutrition.carbs}</span> <span class="unit">g</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Fat</span>
-                <span class="nutrition-val"><span id="nutr-fat">${recipe.nutrition ? recipe.nutrition.fat || "24" : "24"}</span> <span class="unit">g</span></span>
+                <span class="nutrition-val"><span>${nutrition.fat}</span> <span class="unit">g</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Fiber</span>
-                <span class="nutrition-val"><span id="nutr-fiber">${recipe.nutrition ? recipe.nutrition.fiber || "3" : "3"}</span> <span class="unit">g</span></span>
+                <span class="nutrition-val"><span>${nutrition.fiber}</span> <span class="unit">g</span></span>
+              </div>
+              <div class="nutrition-row">
+                <span class="nutrition-label">Sugar</span>
+                <span class="nutrition-val"><span>${nutrition.sugar}</span> <span class="unit">g</span></span>
+              </div>
+              <div class="nutrition-row">
+                <span class="nutrition-label">Sodium</span>
+                <span class="nutrition-val"><span>${nutrition.sodium}</span> <span class="unit">mg</span></span>
               </div>
             </div>
           </div>
@@ -372,21 +363,6 @@ async function renderRecipeDetail() {
           statusMsg.textContent = `Added to ${dayName} ${selectedSlot}!`;
         }
       });
-    }
-
-    // Fetch USDA Nutritional breakdown if available
-    if (recipe.extendedIngredients && recipe.extendedIngredients.length > 0) {
-      const firstIngredient = recipe.extendedIngredients[0].name;
-      const nutrs = await getNutritionForIngredient(firstIngredient, usdaKey);
-      if (nutrs) {
-        if (nutrs.calories)
-          qs("#nutr-calories").textContent = `${Math.round(nutrs.calories)}`;
-        if (nutrs.protein)
-          qs("#nutr-protein").textContent = `${Math.round(nutrs.protein)}`;
-        if (nutrs.carbs)
-          qs("#nutr-carbs").textContent = `${Math.round(nutrs.carbs)}`;
-        if (nutrs.fat) qs("#nutr-fat").textContent = `${Math.round(nutrs.fat)}`;
-      }
     }
   } catch (error) {
     console.error("Failed to load recipe detail:", error);
