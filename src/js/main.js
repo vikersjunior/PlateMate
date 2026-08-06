@@ -1,4 +1,11 @@
-import { qs, loadHeaderFooter, getLocalStorage, setLocalStorage, updateFavoritesBadge } from "./utils.mjs";
+import {
+  qs,
+  loadHeaderFooter,
+  getLocalStorage,
+  setLocalStorage,
+  updateFavoritesBadge,
+  showToast,
+} from "./utils.mjs";
 import { recipeCardTemplate } from "./recipeCard.mjs";
 import { MOCK_RECIPES } from "./mockRecipes.mjs";
 
@@ -24,6 +31,9 @@ const filterChipBtns = document.querySelectorAll(".filter-chip-btn");
 
 const apiKey = import.meta.env.VITE_SPOONACULAR_API_KEY;
 
+const TRENDING_CACHE_KEY = "so-trending-cache";
+const TRENDING_CACHE_HOURS = 6;
+
 let activeCategory = "";
 let activeDiet = "";
 let activeMaxTime = null;
@@ -41,7 +51,9 @@ function isRecipeFavorite(id) {
 
 function toggleFavoriteRecipe(recipe) {
   let favorites = getFavorites();
-  const index = favorites.findIndex((fav) => String(fav.id) === String(recipe.id));
+  const index = favorites.findIndex(
+    (fav) => String(fav.id) === String(recipe.id),
+  );
 
   if (index >= 0) {
     favorites.splice(index, 1);
@@ -71,9 +83,19 @@ function getCategoryParams(category) {
   return {};
 }
 
-// Load Trending Recipes directly from Spoonacular API
+// Load Trending Recipes directly from Spoonacular API (cached 6 hours)
 async function loadTrendingRecipes() {
   if (!trendingList) return;
+
+  const cached = getLocalStorage(TRENDING_CACHE_KEY);
+  const cacheAge = cached ? Date.now() - cached.timestamp : Infinity;
+  const cacheValid = cacheAge < TRENDING_CACHE_HOURS * 60 * 60 * 1000;
+
+  if (cacheValid) {
+    trendingRecipes = cached.recipes;
+    renderTrendingList();
+    return;
+  }
 
   trendingList.innerHTML = `
     <div class="loading-box" style="grid-column: 1 / -1; width: 100%;">
@@ -98,12 +120,29 @@ async function loadTrendingRecipes() {
 
     if (data.results && data.results.length > 0) {
       trendingRecipes = data.results;
+      setLocalStorage(TRENDING_CACHE_KEY, {
+        recipes: trendingRecipes,
+        timestamp: Date.now(),
+      });
     } else {
       trendingRecipes = MOCK_RECIPES;
     }
   } catch (err) {
     console.warn("Trending recipes API error:", err);
-    trendingRecipes = MOCK_RECIPES;
+
+    if (cached) {
+      trendingRecipes = cached.recipes;
+      showToast(
+        "Showing recently saved trending picks — live data unavailable.",
+        "info",
+      );
+    } else {
+      trendingRecipes = MOCK_RECIPES;
+      showToast(
+        "Showing example recipes — live trending data unavailable right now.",
+        "info",
+      );
+    }
   }
 
   renderTrendingList();
@@ -114,7 +153,9 @@ function renderTrendingList() {
   const favorites = getFavorites();
   const html = trendingRecipes
     .map((recipe) => {
-      const isFav = favorites.some((fav) => String(fav.id) === String(recipe.id));
+      const isFav = favorites.some(
+        (fav) => String(fav.id) === String(recipe.id),
+      );
       return recipeCardTemplate(recipe, isFav);
     })
     .join("");
@@ -145,7 +186,8 @@ function filterMockRecipes(query, diet, maxTime, category) {
       (diet === "ketogenic" && r.tags.includes("Keto")) ||
       (diet === "high protein" && r.tags.includes("High Protein"));
 
-    const timeMatch = !maxTime || Number(r.readyInMinutes || r.time) <= Number(maxTime);
+    const timeMatch =
+      !maxTime || Number(r.readyInMinutes || r.time) <= Number(maxTime);
 
     return titleMatch && catMatch && dietMatch && timeMatch;
   });
@@ -183,7 +225,9 @@ async function fetchSearchResults(query, diet, maxTime, category) {
     const response = await fetch(url);
 
     if (response.status === 402) {
-      console.warn("Spoonacular API 402 Daily Limit Exceeded. Using offline dataset.");
+      console.warn(
+        "Spoonacular API 402 Daily Limit Exceeded. Using offline dataset.",
+      );
       return filterMockRecipes(query, diet, maxTime, category);
     }
 
@@ -242,7 +286,8 @@ function renderSearchResults(recipes) {
     return;
   }
 
-  const categoryLabel = activeCategory && activeCategory !== "All" ? ` in ${activeCategory}` : "";
+  const categoryLabel =
+    activeCategory && activeCategory !== "All" ? ` in ${activeCategory}` : "";
   resultsStatus.textContent = `${recipes.length} recipe${recipes.length !== 1 ? "s" : ""} found${categoryLabel}`;
 
   const favorites = getFavorites();
@@ -250,7 +295,9 @@ function renderSearchResults(recipes) {
     <ul id="recipe-list" class="recipe-list">
       ${recipes
         .map((recipe) => {
-          const isFav = favorites.some((fav) => String(fav.id) === String(recipe.id));
+          const isFav = favorites.some(
+            (fav) => String(fav.id) === String(recipe.id),
+          );
           return recipeCardTemplate(recipe, isFav);
         })
         .join("")}
@@ -287,7 +334,12 @@ async function executeSearch() {
   `;
 
   try {
-    const recipes = await fetchSearchResults(query, activeDiet, activeMaxTime, activeCategory);
+    const recipes = await fetchSearchResults(
+      query,
+      activeDiet,
+      activeMaxTime,
+      activeCategory,
+    );
     renderSearchResults(recipes);
   } catch (error) {
     console.error("Search execution failed:", error);
@@ -366,7 +418,9 @@ filterChipBtns.forEach((chip) => {
         activeDiet = "";
         chip.classList.remove("active");
       } else {
-        document.querySelectorAll(".filter-chip-btn[data-filter=\"diet\"]").forEach((c) => c.classList.remove("active"));
+        document
+          .querySelectorAll('.filter-chip-btn[data-filter="diet"]')
+          .forEach((c) => c.classList.remove("active"));
         activeDiet = val;
         chip.classList.add("active");
       }
@@ -375,7 +429,9 @@ filterChipBtns.forEach((chip) => {
         activeMaxTime = null;
         chip.classList.remove("active");
       } else {
-        document.querySelectorAll(".filter-chip-btn[data-filter=\"time\"]").forEach((c) => c.classList.remove("active"));
+        document
+          .querySelectorAll('.filter-chip-btn[data-filter="time"]')
+          .forEach((c) => c.classList.remove("active"));
         activeMaxTime = val;
         chip.classList.add("active");
       }
@@ -420,14 +476,16 @@ document.addEventListener("click", (e) => {
     toggleFavoriteRecipe(recipe);
     const nowFav = isRecipeFavorite(recipe.id);
 
-    document.querySelectorAll(`.recipe-card__fav-btn[data-id="${recipeId}"]`).forEach((btn) => {
-      btn.classList.toggle("is-favorite", nowFav);
-      const svg = btn.querySelector("svg");
-      if (svg) {
-        svg.setAttribute("fill", nowFav ? "#D94F3D" : "none");
-        svg.setAttribute("stroke", nowFav ? "#D94F3D" : "#6F746E");
-      }
-    });
+    document
+      .querySelectorAll(`.recipe-card__fav-btn[data-id="${recipeId}"]`)
+      .forEach((btn) => {
+        btn.classList.toggle("is-favorite", nowFav);
+        const svg = btn.querySelector("svg");
+        if (svg) {
+          svg.setAttribute("fill", nowFav ? "#D94F3D" : "none");
+          svg.setAttribute("stroke", nowFav ? "#D94F3D" : "#6F746E");
+        }
+      });
   }
 });
 
@@ -444,10 +502,13 @@ function updatePlannerBanner() {
 
   if (totalMeals > 0) {
     if (title) title.textContent = "Continue Planning";
-    if (sub) sub.textContent = `📅 ${totalMeals} meal${totalMeals !== 1 ? "s" : ""} already planned this week`;
+    if (sub)
+      sub.textContent = `📅 ${totalMeals} meal${totalMeals !== 1 ? "s" : ""} already planned this week`;
   } else {
     if (title) title.textContent = "Start Planning Your Week";
-    if (sub) sub.textContent = "Add recipes to your weekly planner and generate a shopping list automatically";
+    if (sub)
+      sub.textContent =
+        "Add recipes to your weekly planner and generate a shopping list automatically";
   }
 }
 
