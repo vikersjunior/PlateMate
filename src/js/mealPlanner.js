@@ -4,7 +4,6 @@ import {
   loadHeaderFooter,
   qs,
   showToast,
-  parseRecipeNutrition,
 } from "./utils.mjs";
 
 loadHeaderFooter();
@@ -98,27 +97,29 @@ async function calculateWeeklyNutrition() {
     sodium: 0,
   };
 
-  for (const meal of meals) {
-    const nutrition = parseRecipeNutrition(meal);
-    totals.calories += nutrition.calories || 0;
-    totals.protein += nutrition.protein || 0;
-    totals.carbs += nutrition.carbs || 0;
-    totals.fat += nutrition.fat || 0;
-    totals.fiber += nutrition.fiber || 0;
-    totals.sugar += nutrition.sugar || 0;
-    totals.sodium += nutrition.sodium || 0;
-  }
+  let mealsWithData = 0;
 
-  renderWeeklyNutrition(totals, meals.length);
+  meals.forEach((meal) => {
+    if (!meal.nutrition) return;
+    mealsWithData++;
+    totals.calories += meal.nutrition.calories || 0;
+    totals.protein += meal.nutrition.protein || 0;
+    totals.fat += meal.nutrition.fat || 0;
+    totals.carbs += meal.nutrition.carbs || 0;
+    totals.fiber += meal.nutrition.fiber || 0;
+    totals.sugar += meal.nutrition.sugar || 0;
+    totals.sodium += meal.nutrition.sodium || 0;
+  });
+
+  renderWeeklyNutrition(totals, meals.length, mealsWithData);
 }
 
-function renderWeeklyNutrition(totals, mealCount) {
+function renderWeeklyNutrition(totals, mealCount, mealsWithData) {
   if (!nutritionSummaryEl) return;
 
   nutritionSummaryEl.innerHTML = `
     <div class="nutrition-summary">
       <h2 class="nutrition-summary__title">Weekly Nutrition Summary</h2>
-      <p class="nutrition-summary__subtitle">Estimated totals across ${mealCount} planned meal${mealCount !== 1 ? "s" : ""}</p>
 
       <div class="nutrition-summary__grid">
         <div class="nutrition-tile nutrition-tile--highlight">
@@ -152,7 +153,7 @@ function renderWeeklyNutrition(totals, mealCount) {
       </div>
 
       <p class="nutrition-summary__disclaimer">
-        Estimated from the first few ingredients of each recipe, a rough total, not a precise count.
+        Estimated totals from ${mealsWithData} of ${mealCount} planned meal${mealCount !== 1 ? "s" : ""} with available nutrition data
       </p>
     </div>
   `;

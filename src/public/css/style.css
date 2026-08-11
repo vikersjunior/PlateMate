@@ -1221,7 +1221,7 @@ nav a.active {
   font-size: 18px;
   font-weight: 600;
   color: var(--pm-green);
-  margin: 0 0 2px;
+  margin: 0 0 20px;
 }
 
 .nutrition-summary__subtitle {
