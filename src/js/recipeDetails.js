@@ -6,13 +6,14 @@ import {
   updateFavoritesBadge,
   qs,
   showToast,
-  parseRecipeNutrition,
+  getNutritionForIngredient,
 } from "./utils.mjs";
 import { MOCK_RECIPES } from "./mockRecipes.mjs";
 
 loadHeaderFooter();
 
 const spoonacularKey = import.meta.env.VITE_SPOONACULAR_API_KEY;
+const usdaKey = import.meta.env.VITE_USDA_FDC_API_KEY;
 
 const recipeId = getParam("id");
 const content = qs("#recipe-detail-content");
@@ -65,7 +66,36 @@ function toggleFavorite(recipe) {
   updateFavoritesBadge();
 }
 
-function addToMealPlan(recipe, day, slot) {
+async function calculateRecipeNutrition(recipe) {
+  const ingredients = (recipe.extendedIngredients || []).slice(0, 5);
+  const totals = {
+    calories: 0,
+    protein: 0,
+    fat: 0,
+    carbs: 0,
+    fiber: 0,
+    sugar: 0,
+    sodium: 0,
+  };
+  let foundAny = false;
+
+  for (const ing of ingredients) {
+    const nutrients = await getNutritionForIngredient(ing.name, usdaKey);
+    if (!nutrients) continue;
+    foundAny = true;
+    totals.calories += nutrients.calories || 0;
+    totals.protein += nutrients.protein || 0;
+    totals.fat += nutrients.fat || 0;
+    totals.carbs += nutrients.carbs || 0;
+    totals.fiber += nutrients.fiber || 0;
+    totals.sugar += nutrients.sugar || 0;
+    totals.sodium += nutrients.sodium || 0;
+  }
+
+  return foundAny ? totals : null;
+}
+
+function addToMealPlan(recipe, day, slot, nutrition) {
   let mealPlan = getLocalStorage("so-mealplan") || {};
 
   if (!mealPlan[day] || Array.isArray(mealPlan[day])) {
@@ -77,7 +107,7 @@ function addToMealPlan(recipe, day, slot) {
     title: recipe.title,
     image: recipe.image,
     extendedIngredients: recipe.extendedIngredients,
-    nutrition: parseRecipeNutrition(recipe),
+    nutrition: nutrition,
   };
 
   setLocalStorage("so-mealplan", mealPlan);
@@ -100,7 +130,7 @@ async function renderRecipeDetail() {
   try {
     const recipe = await getRecipeDetails(recipeId);
     const isFav = isFavorite(recipe.id);
-    const nutrition = parseRecipeNutrition(recipe);
+    const nutrition = await calculateRecipeNutrition(recipe);
 
     const tags =
       recipe.tags ||
@@ -157,6 +187,13 @@ async function renderRecipeDetail() {
     }
 
     content.innerHTML = `
+      <a href="#" id="recipe-back-btn" class="recipe-back-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 5l-7 7 7 7" />
+        </svg>
+        Back
+      </a>
+
       <div class="recipe-detail-hero">
         <img src="${recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1200&h=600&fit=crop"}" alt="${recipe.title}" />
         <div class="recipe-hero-overlay"></div>
@@ -220,35 +257,35 @@ async function renderRecipeDetail() {
 
           <!-- Nutrition Card -->
           <div class="sidebar-card">
-            <h3 class="sidebar-card-title">Nutrition (per serving)</h3>
+            <h3 class="sidebar-card-title">Nutrition (estimated)</h3>
             <div class="nutrition-list">
               <div class="nutrition-row">
                 <span class="nutrition-label">Calories</span>
-                <span class="nutrition-val"><span>${nutrition.calories}</span> <span class="unit">kcal</span></span>
+                <span class="nutrition-val"><span>${nutrition ? Math.round(nutrition.calories) : "—"}</span> <span class="unit">kcal</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Protein</span>
-                <span class="nutrition-val"><span>${nutrition.protein}</span> <span class="unit">g</span></span>
+                <span class="nutrition-val"><span>${nutrition ? Math.round(nutrition.protein) : "—"}</span> <span class="unit">g</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Carbs</span>
-                <span class="nutrition-val"><span>${nutrition.carbs}</span> <span class="unit">g</span></span>
+                <span class="nutrition-val"><span>${nutrition ? Math.round(nutrition.carbs) : "—"}</span> <span class="unit">g</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Fat</span>
-                <span class="nutrition-val"><span>${nutrition.fat}</span> <span class="unit">g</span></span>
+                <span class="nutrition-val"><span>${nutrition ? Math.round(nutrition.fat) : "—"}</span> <span class="unit">g</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Fiber</span>
-                <span class="nutrition-val"><span>${nutrition.fiber}</span> <span class="unit">g</span></span>
+                <span class="nutrition-val"><span>${nutrition ? Math.round(nutrition.fiber) : "—"}</span> <span class="unit">g</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Sugar</span>
-                <span class="nutrition-val"><span>${nutrition.sugar}</span> <span class="unit">g</span></span>
+                <span class="nutrition-val"><span>${nutrition ? Math.round(nutrition.sugar) : "—"}</span> <span class="unit">g</span></span>
               </div>
               <div class="nutrition-row">
                 <span class="nutrition-label">Sodium</span>
-                <span class="nutrition-val"><span>${nutrition.sodium}</span> <span class="unit">mg</span></span>
+                <span class="nutrition-val"><span>${nutrition ? Math.round(nutrition.sodium) : "—"}</span> <span class="unit">mg</span></span>
               </div>
             </div>
           </div>
@@ -289,6 +326,19 @@ async function renderRecipeDetail() {
         </div>
       </dialog>
     `;
+
+    // Back Button Handler
+    const backBtn = qs("#recipe-back-btn");
+    if (backBtn) {
+      backBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (window.history.length > 1 && document.referrer) {
+          window.history.back();
+        } else {
+          window.location.href = "/index.html";
+        }
+      });
+    }
 
     // Favorite Button Handler
     const favBtn = qs("#detail-fav-btn");
@@ -352,7 +402,7 @@ async function renderRecipeDetail() {
 
     if (submitModalBtn && plannerModal) {
       submitModalBtn.addEventListener("click", () => {
-        addToMealPlan(recipe, selectedDay, selectedSlot);
+        addToMealPlan(recipe, selectedDay, selectedSlot, nutrition);
         plannerModal.close();
         const dayName =
           selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1);
